@@ -30,32 +30,33 @@ def inicializacion(bucketname, matrixA, matrixB, nworkers, ibm_cos):
     iterdata=[]
     if nworkers <= len(matrixA):
         a=len(matrixA)//nworkers #define how many chunks we have to divide the matrix into. It must be the same number as len(matrixB[0])/nworkers.
-        mod=len(matrixA)%nworkers #Para cuando el tamaño de la matriz no es divisible por la nº de workers
+        #mod=len(matrixA)%nworkers #Para cuando el tamaño de la matriz no es divisible por la nº de workers
         dividirMatrizB=False
     else:      #COMPROBAR: Si no, nworkers == m*l (Se ha comprobado previamente que nworkers no pueda estar entre m y m*l) 
         a=1
-        mod=0
+        #mod=0
         dividirMatrizB=True
     
     
       
     #Matrix A division
     nfitxer=1 #variable para mantener el nombre de cada fichero en orden normal ascendente
-    for i in range(0,nworkers-1, a):  # range(start,end,step). Ex: range(0,10,2) -> [0,2,4,6,8]
+    for i in range(0,nworkers*a, a):  # range(start,end,step). Ex: range(0,10,2) -> [0,2,4,6,8]
         ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), Body=np.array2string(matrixA[i:i+a]).translate(str.maketrans("", "", "[]"))) #se tiene que pasar el array a una string para poder ser guardada como "Body", el translate es para eliminar los [] que añade el array2string
         nfitxer+=1
     ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), Body=np.array2string(matrixA[i:len(matrixA)]).translate(str.maketrans("", "", "[]"))) #De esta manera las filas que sobren estarán en el ultimo fichero
+    #FUNCIONA BIEN ASI, pero la ultima submatriz se sube dos veces: durante la ultima iteración en en el bucle y despues es sustituida (linea de arriba)
+    #Se solucionaría cambiando el for por un while
 
     #MatrixB division
     matrixB_trans=np.transpose(matrixB) #Transposed Matrix B, dado que tiene que ser divida column-wise
     if dividirMatrizB:
         nfitxer=1
-        for i in range(0, len(matrixB_trans)-mod, a):
-            if i+a >= len(matrixB_trans)-mod:
-                ibm_cos.put_object(Bucket=bucketname, Key="B({},:).txt".format(nfitxer), Body=np.array2string(matrixB_trans[i:len(matrixB_trans)]).translate(str.maketrans("", "", "[]"))) #De esta manera las filas que sobren estarán en el ultimo fichero
-            else:
-                ibm_cos.put_object(Bucket=bucketname, Key="B({},:).txt".format(nfitxer), Body=np.array2string(matrixB_trans[i:i+a]).translate(str.maketrans("", "", "[]")))
+        for i in range(0, nworkers*a, a):
+            ibm_cos.put_object(Bucket=bucketname, Key="B({},:).txt".format(nfitxer), Body=np.array2string(matrixB_trans[i:i+a]).translate(str.maketrans("", "", "[]")))
             nfitxer+=1
+        ibm_cos.put_object(Bucket=bucketname, Key="B({},:).txt".format(nfitxer), Body=np.array2string(matrixB_trans[i:len(matrixB_trans)]).translate(str.maketrans("", "", "[]"))) #De esta manera las filas que sobren estarán en el ultimo fichero
+
         
         for i in range(1, len(matrixA)+1):
             for j in range(1, len(matrixB_trans)+1):
@@ -93,7 +94,7 @@ TODO:añadir descripcion
 
 """
 
-"""TODO: subir matriz C entera"""
+"""TODO: PENSAR COMO JUNTAR LOS RESULTADOS DE CADA WORKER EN UNA MATRIZ C (seria necesario pasarle m y l )"""
 def reduce_matrix(results,ibm_cos):
     i=1
     data=[]

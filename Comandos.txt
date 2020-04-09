@@ -3,6 +3,7 @@ IMAGEN EXPLICATIVA: https://i.stack.imgur.com/UvZ0M.png
 
 COMANDOS MAS USADOS:
 git clone username@host:/path/to/repository
+git clone https://github.com/username/repository
 
 git add <filename>
 git add *

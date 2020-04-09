@@ -1,0 +1,17 @@
+GUIA RAPIDA: https://rogerdudler.github.io/git-guide/
+
+COMANDOS MAS USADOS:
+git clone username@host:/path/to/repository
+
+git add <filename>
+git add *
+git add . #Subir todos los archivos en los que haya habido cambios
+
+git commit -m "Commit message"
+
+git push origin master
+
+git fetch
+
+git pull
+

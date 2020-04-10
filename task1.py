@@ -39,11 +39,11 @@ def inicializacion(bucketname, matrixA, matrixB, nworkers, ibm_cos):
     #Matrix A division
     nfitxer=1 #variable para mantener el nombre de cada fichero en orden normal ascendente
     i=0
-    while i < (nworkers-1)*a:
+    while i < (nworkers-1)*a and i < len(matrixA)-1: #cada submatriz tendrá "a" filas. La condición de i<len(matrixA)-1 es necesaria para que no cree mas ficheros que filas tiene A (porque si nworkers es m*l la 1º condición no es suficiente)
         ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), Body=np.array2string(matrixA[i:i+a]).translate(str.maketrans("", "", "[]"))) #se tiene que pasar el array a una string para poder ser guardada como "Body", el translate es para eliminar los [] que añade el array2string
         i+=a
         nfitxer+=1
-    ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), Body=np.array2string(matrixA[i:len(matrixA)]).translate(str.maketrans("", "", "[]"))) #De esta manera las filas que sobren estarán en el ultimo fichero
+    ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), Body=np.array2string(matrixA[i:len(matrixA)]).translate(str.maketrans("", "", "[]"))) #La ultima submatriz se hace fuera del bucle por si quedan filas que sobren, las cuales las tratará el último worker
 
 
     #MatrixB division
@@ -51,7 +51,7 @@ def inicializacion(bucketname, matrixA, matrixB, nworkers, ibm_cos):
     if dividirMatrizB:
         nfitxer=1
         i=0
-        while i < (nworkers-1)*a:
+        while i < (nworkers-1)*a and i < len(matrixB_trans)-1:
             ibm_cos.put_object(Bucket=bucketname, Key="B(:,{}).txt".format(nfitxer), Body=np.array2string(matrixB_trans[i:i+a]).translate(str.maketrans("", "", "[]")))
             i+=a
             nfitxer+=1
@@ -64,7 +64,7 @@ def inicializacion(bucketname, matrixA, matrixB, nworkers, ibm_cos):
     else:    
         ibm_cos.put_object(Bucket=bucketname, Key="B(:,*).txt", Body=np.array2string(matrixB_trans).translate(str.maketrans("", "", "[]")))
         for i in range(1, nworkers+1):
-            iterdata.append({"A": 'A({},:).txt'.format(i), "B": "B(:,*).txt", "C": 'C({},:'.format(i)}) #Se sube la matriz B entera
+            iterdata.append({"A": 'A({},:).txt'.format(i), "B": "B(:,*).txt", "C": 'C({},:)'.format(i)}) #Se sube la matriz B entera
 
     return iterdata
 
@@ -87,7 +87,7 @@ def map_multiply_matrix(A, B, C, ibm_cos):
     submatrixB = np.genfromtxt(StringIO(submatrixB),dtype=int)
     submatrixB = np.transpose(submatrixB)
 
-    return submatrixA.dot(submatrixB)
+    return {'C': C, 'res': submatrixA.dot(submatrixB)}
 
 """
 TODO:añadir descripcion
@@ -96,14 +96,23 @@ TODO:añadir descripcion
 
 """TODO: EN EL CASO DE QUE TENGAMOS M*L WORKERS OBTENDREMOS UNA C CON AMBAS COORDENADOS, sino solo con la fila"""
 def reduce_matrix(results,ibm_cos):
-    i=1
-    data=[]
+    matrixC=[]
     for subresult in results:
-        ibm_cos.put_object(Bucket=bucketname, Key="C({}).txt".format(i), Body=np.array2string(subresult).translate(str.maketrans("", "", "[]")))
-        data.append(ibm_cos.get_object(Bucket=bucketname, Key="C({}).txt".format(i))['Body'].read().decode('utf-8'))
-        i+=1
+        (fila,col)=subresult['C'].strip('C()').split(',') #Teniendo en cuenta el formato C(fila,columna)
+        fila=int(fila)
+        #COnsiderar saltos de lineas (cuando a es mayor de 1) y pasarlo a string
+        if (col==':'):
+            matrixC.insert(fila,np.array2string(subresult['res']).translate(str.maketrans("", "", "[]"))) #CORREGIR PORQUE HAY SALTOS DE LINEA AL TENER UNA HACERLO CON FILAS SUPERIORES DE 12
+        else:
+            #col=int(col)
+            if fila-1 >= len(matrixC): #La primera vez que llega el valor de una fila hay que crear una lista, que correspondrá a una de las filas de la matriz C
+                matrixC.append("")
+            matrixC[fila-1]=matrixC[fila-1]+" "+np.array2string(subresult['res']).translate(str.maketrans("", "", "[]")) #ESTO SOLO FUNCIONA BIEN SI CONSIDERAMOS QUE LOS RESULTADOS VAN LLEGANDO EN ORDEN
 
-    return data 
+    ibm_cos.put_object(Bucket=bucketname, Key="C.txt", Body='\n'.join(matrixC))
+    #data.append(ibm_cos.get_object(Bucket=bucketname, Key="C({}).txt".format(i))['Body'].read().decode('utf-8'))
+    
+    return matrixC
 
 
 
@@ -112,17 +121,19 @@ if __name__ == '__main__':
     """TODO: Hacer comprobaciones:
             - Pedir tamaño de matrices
             - La matriz no puede tener un tamaño mayor de 100
-            - Comprobar que las matrices se puedan multipicar, es decir: m x n y n x p (n tienen que ser iguales)
-            - Comprobar que el nº de workers requerido no esta entre m y m*l"""
+            - Comprobar que las matrices se puedan multipicar, es decir: m x n y n x l (n tienen que ser iguales)
+            - Comprobar que el nº de workers requerido no esta entre m y m*l
+            - Cronometrar tiempo"""
     
-    matrixA=random_matrix(3,3)
+    matrixA=random_matrix(20,10)
     print("Matriz A \n", matrixA)
-    matrixB=random_matrix(3,3)
+    matrixB=random_matrix(10,20)
     print("Matriz B \n", matrixB)
-    result_matrix=multiply_matrix_sequencial(matrixA,matrixB)
-    print("Resultado \n", result_matrix)
+    #result_matrix=multiply_matrix_sequencial(matrixA,matrixB) #No funciona con matrices no cuadradas
+    #print("Resultado \n", result_matrix)
+    print("Resultado \n", matrixA.dot(matrixB))
 
-    nworkers=3
+    nworkers=20
     pw = pywren.ibm_cf_executor()
     pw.call_async(inicializacion, [bucketname, matrixA, matrixB, nworkers])
     iterdata= pw.get_result()

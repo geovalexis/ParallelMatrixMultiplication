@@ -4,7 +4,7 @@ from io import StringIO
 
 
 __author__      = "Geovanny Risco y Damian Maleno"
-bucketname = 'geolacket' #nombre del bucket en el IBM cloud
+bucketname = 'geolacket' #nombre del bucket en el IBM cloud, 'geolacket'or 'damianmaleno'
 
 def random_matrix(m,n):
     return np.random.randint(100, size=(m,n))

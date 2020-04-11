@@ -4,7 +4,7 @@ from io import StringIO
 
 
 __author__      = "Geovanny Risco y Damian Maleno"
-bucketname = 'geolacket' #nombre del bucket en el IBM cloud, 'geolacket'or 'damianmaleno'
+bucketname = 'damianmaleno' #nombre del bucket en el IBM cloud, 'geolacket'or 'damianmaleno'
 
 def random_matrix(m,n):
     return np.random.randint(100, size=(m,n))
@@ -119,21 +119,33 @@ def reduce_matrix(results,ibm_cos):
 if __name__ == '__main__':
 
     """TODO: Hacer comprobaciones:
-            - Pedir tamaño de matrices
-            - La matriz no puede tener un tamaño mayor de 100
-            - Comprobar que las matrices se puedan multipicar, es decir: m x n y n x l (n tienen que ser iguales)
-            - Comprobar que el nº de workers requerido no esta entre m y m*l
-            - Cronometrar tiempo"""
+            - Pedir tamaño de matrices - done
+            - El numero de workers no puede ser superior a 100 - done
+            - Comprobar que las matrices se puedan multipicar, es decir: m x n y n x p (n tienen que ser iguales) - done 
+            - Comprobar que el nº de workers requerido no esta entre m y m*l"""
     
-    matrixA=random_matrix(20,10)
-    print("Matriz A \n", matrixA)
-    matrixB=random_matrix(10,20)
-    print("Matriz B \n", matrixB)
-    #result_matrix=multiply_matrix_sequencial(matrixA,matrixB) #No funciona con matrices no cuadradas
-    #print("Resultado \n", result_matrix)
-    print("Resultado \n", matrixA.dot(matrixB))
+    #rowsA = input("Number of rows of matrix A =")
+    #columsA = input("Number of colums of matrix A =")
+    #rowsB = input("Number of rows of matrix B =") 
+    #columnsB = rowsA
+    
 
+
+    matrixA=random_matrix(3,3)      #matrixA=random_matrix(rowsA,columnsA)
+    print("Matriz A \n", matrixA)
+    matrixB=random_matrix(3,3)      #matrixB=random_matrix(rowsB,columnsB)
+    print("Matriz B \n", matrixB)
+    #if (len(matrixA) != len(matrixB[0])):
+    #    print ("Matrices cannot be multiplied: Rows(A)=", len(matrixA),"!= Columns(B)=", len(matrixB[0]))
+    result_matrix=multiply_matrix_sequencial(matrixA,matrixB)
+    print("Result \n", result_matrix)
+
+    #nworkers = input("Number of workers =")
     nworkers=20
+    #while nworkers>100 or rowsA<nworkers<rowsA*columnsB:
+    #    print("Number of workers should be a number between 0 and 100")
+    #        #nworkers = input("Number of workers =")
+
     pw = pywren.ibm_cf_executor()
     pw.call_async(inicializacion, [bucketname, matrixA, matrixB, nworkers])
     iterdata= pw.get_result()

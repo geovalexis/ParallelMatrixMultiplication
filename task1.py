@@ -115,10 +115,10 @@ if __name__ == '__main__':
             - Comprobar que las matrices se puedan multipicar, es decir: m x n y n x p (n tienen que ser iguales) - done 
             - Comprobar que el nº de workers requerido no esta entre m y m*l"""
     
-    rowsA = input("Number of rows of matrix A =")
-    columsA = input("Number of colums of matrix A =")
-    rowsB = input("Number of rows of matrix B =") 
-    columnsB = rowsA
+    #rowsA = input("Number of rows of matrix A =")
+    #columsA = input("Number of colums of matrix A =")
+    #rowsB = input("Number of rows of matrix B =") 
+    #columnsB = rowsA
     
 
 
@@ -133,10 +133,9 @@ if __name__ == '__main__':
 
     #nworkers = input("Number of workers =")
     nworkers=3
-    while (nworkers > 100):
-        print("Number of workers should be a number between 0 and 100")
-            #nworkers = input("Number of workers =")
-            nworkers=3
+    #while nworkers>100 or rowsA<nworkers<rowsA*columnsB:
+    #    print("Number of workers should be a number between 0 and 100")
+    #        #nworkers = input("Number of workers =")
     pw = pywren.ibm_cf_executor()
     pw.call_async(inicializacion, [bucketname, matrixA, matrixB, nworkers])
     iterdata= pw.get_result()

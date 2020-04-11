@@ -34,37 +34,45 @@ def inicializacion(bucketname, matrixA, matrixB, nworkers, ibm_cos):
     
     iterdata=[]
     if nworkers <= len(matrixA):
-        a=len(matrixA)//nworkers #define how many chunks we have to divide the matrix into. It must be the same number as len(matrixB[0])/nworkers.
+        a=len(matrixA)//nworkers # define cuantas filas le corresponderá a cada submatriz
         dividirMatrizB=False
-    else:      #COMPROBAR: Si no, nworkers == m*l (Se ha comprobado previamente que nworkers no pueda estar entre m y m*l) 
+    else:      #Se ha comprobado previamente que nworkers no pueda estar entre m y m*l
         a=1
         dividirMatrizB=True
      
       
-    #Matrix A division
+    #DIVISION DE LA MATRIZ A 
     nfitxer=1 #variable para mantener el nombre de cada fichero en orden normal ascendente
     i=0
-    while i < (nworkers-1)*a and i < len(matrixA)-1: #cada submatriz tendrá "a" filas. La condición de i<len(matrixA)-1 es necesaria para que no cree mas ficheros que filas tiene A (porque si nworkers es m*l la 1º condición no es suficiente)
-        ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), Body=np.array2string(matrixA[i:i+a],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]"))) #se tiene que pasar el array a una string para poder ser guardada como "Body", el translate es para eliminar los [] que añade el array2string
+    while i < (nworkers-1)*a and i < len(matrixA)-1: #cada submatriz tendrá "a" filas. La condición de i<len(matrixA)-1 es necesaria para que no cree mas ficheros que 
+                                                     #filas tiene A (porque si nworkers es m*l la 1º condición no es suficiente)
+        ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), 
+                        Body=np.array2string(matrixA[i:i+a],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]"))) 
+                        #se tiene que pasar el array a una string para poder ser guardada como "Body", el translate es para eliminar los [] que añade el array2string
         i+=a
         nfitxer+=1
-    ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), Body=np.array2string(matrixA[i:len(matrixA)],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]"))) #La ultima submatriz se hace fuera del bucle por si quedan filas que sobren, las cuales las tratará el último worker
+    ibm_cos.put_object(Bucket=bucketname, Key="A({},:).txt".format(nfitxer), 
+                        Body=np.array2string(matrixA[i:len(matrixA)],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]"))) 
+                        #La ultima submatriz se hace fuera del bucle por si quedan filas que sobren, las cuales las tratará el último worker
 
 
-    #MatrixB division
-    matrixB_trans=np.transpose(matrixB) #Transposed Matrix B, dado que tiene que ser divida column-wise
+    #DIVISION DE LA MATRIZ B
+    matrixB_trans=np.transpose(matrixB) #Matrix B transpuesta de manera que se utiliza el mismo código que con la matriz A. En el ibm cloud estará la submatriz transpuesta. 
+                                        #Esto se tiene que volver a transponer al realizar la multiplicación.
     if dividirMatrizB:
         nfitxer=1
         i=0
         while i < (nworkers-1)*a and i < len(matrixB_trans)-1:
-            ibm_cos.put_object(Bucket=bucketname, Key="B(:,{}).txt".format(nfitxer), Body=np.array2string(matrixB_trans[i:i+a],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]")))
+            ibm_cos.put_object(Bucket=bucketname, Key="B(:,{}).txt".format(nfitxer), 
+                        Body=np.array2string(matrixB_trans[i:i+a],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]")))
             i+=a
             nfitxer+=1
-        ibm_cos.put_object(Bucket=bucketname, Key="B(:,{}).txt".format(nfitxer), Body=np.array2string(matrixB_trans[i:len(matrixB_trans)],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]"))) #De esta manera las filas que sobren estarán en el ultimo fichero
+        ibm_cos.put_object(Bucket=bucketname, Key="B(:,{}).txt".format(nfitxer), 
+                        Body=np.array2string(matrixB_trans[i:len(matrixB_trans)],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]"))) 
 
         
         for i in range(1, len(matrixA)+1):
-            for j in range(1, len(matrixB_trans)+1):
+            for j in range(1, len(matrixB_trans)+1): #Cada fila de A se multiplicará por cada uno de las columnas de B
                 iterdata.append({"A": 'A({},:).txt'.format(i), "B": 'B(:,{}).txt'.format(j), "C": 'C({},{})'.format(i,j)})
     else:    
         ibm_cos.put_object(Bucket=bucketname, Key="B(:,*).txt", Body=np.array2string(matrixB_trans,max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]")))
@@ -74,10 +82,17 @@ def inicializacion(bucketname, matrixA, matrixB, nworkers, ibm_cos):
     return iterdata
 
 
-"""
-TODO:añadir descripcion
-"""
+
 def map_multiply_matrix(A, B, C, ibm_cos):
+    """
+    Realiza la multiplicación de cada submatriz A con su corresponiendo submatriz B. Esta función se ejecuta en paralelo, es decir, cada worker esta ejecutando esta misma función por separado
+    y de manera independiente. 
+    :param A: nombre (key) de la submatriz A en el bucket del ibm cloud
+    :param B: nombre (key) de la submatriz A en el bucket del ibm cloud
+    :param C: posición que ocupará el resultado en la matriz C final
+    :param ibm_cos: instancia de ibm_boto3.CLient(), necesaria para subir y descargar archivos del ibm cloud
+    :returns: diccionario con el parámetro C sin modificar y el resultado de multiplicar la submatriz A y B
+    """
     
     #submatrixA=[]
     #for nom_fitxer in A:
@@ -94,22 +109,21 @@ def map_multiply_matrix(A, B, C, ibm_cos):
 
     return {'C': C, 'res': submatrixA.dot(submatrixB)}
 
-"""
-TODO:añadir descripcion
 
-"""
-
-"""TODO: EN EL CASO DE QUE TENGAMOS M*L WORKERS OBTENDREMOS UNA C CON AMBAS COORDENADOS, sino solo con la fila"""
 def reduce_matrix(results,ibm_cos):
+    """
+    Recibe los resultados de los workers y los junta en una matriz C.
+    :param results: diccionario con el parámetro C, el cual contiene la posición que ocupará el resultado en la matriz C, y el resultado de multiplicar la submatriz A y B
+    :param ibm_cos: instancia de ibm_boto3.CLient(), necesaria para subir y descargar archivos del ibm cloud
+    :returns: matriz C
+    """
     matrixC=[]
     for subresult in results:
         (fila,col)=subresult['C'].strip('C()').split(',') #Teniendo en cuenta el formato C(fila,columna)
         fila=int(fila)
-        #COnsiderar saltos de lineas (cuando a es mayor de 1) y pasarlo a string
         if (col==':'):
             matrixC.insert(fila,np.array2string(subresult['res'],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]"))) #CORREGIR PORQUE HAY SALTOS DE LINEA AL TENER UNA HACERLO CON FILAS SUPERIORES DE 12
         else:
-            #col=int(col)
             if fila-1 >= len(matrixC): #La primera vez que llega el valor de una fila hay que crear una lista, que correspondrá a una de las filas de la matriz C
                 matrixC.append("")
             matrixC[fila-1]=matrixC[fila-1]+" "+np.array2string(subresult['res'],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]")) #ESTO SOLO FUNCIONA BIEN SI CONSIDERAMOS QUE LOS RESULTADOS VAN LLEGANDO EN ORDEN

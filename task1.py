@@ -1,6 +1,7 @@
 import pywren_ibm_cloud as pywren
 import numpy as np
 from io import StringIO
+import time
 
 
 __author__      = "Geovanny Risco y Damian Maleno"
@@ -135,9 +136,9 @@ if __name__ == '__main__':
     
 
 
-    matrixA=random_matrix(3,3)      #matrixA=random_matrix(rowsA,columnsA)
+    matrixA=random_matrix(50,50)      #matrixA=random_matrix(rowsA,columnsA)
     print("Matriz A \n", matrixA)
-    matrixB=random_matrix(3,3)      #matrixB=random_matrix(rowsB,columnsB)
+    matrixB=random_matrix(50,50)      #matrixB=random_matrix(rowsB,columnsB)
     print("Matriz B \n", matrixB)
     #if (len(matrixA) != len(matrixB[0])):
     #    print ("Matrices cannot be multiplied: Rows(A)=", len(matrixA),"!= Columns(B)=", len(matrixB[0]))
@@ -145,16 +146,23 @@ if __name__ == '__main__':
     print("Result \n", result_matrix)
 
     #nworkers = input("Number of workers =")
-    nworkers=20
+    nworkers=50
     #while nworkers>100 or rowsA<nworkers<rowsA*columnsB:
     #    print("Number of workers should be a number between 0 and 100")
     #        #nworkers = input("Number of workers =")
 
+    
     pw = pywren.ibm_cf_executor()
     pw.call_async(inicializacion, [bucketname, matrixA, matrixB, nworkers])
     iterdata= pw.get_result()
     print(iterdata)
-    pw.map_reduce(map_multiply_matrix, iterdata, reduce_matrix)
+    start_time= time.time()
+    futures = pw.map_reduce(map_multiply_matrix, iterdata, reduce_matrix)
+    pw.wait(futures) # wait for the completion of map_reduce() call
+    elapsed_time = time.time() - start_time
     print(pw.get_result())
+    print("Tiempo total: ",elapsed_time,"s")
+
+    
 
 

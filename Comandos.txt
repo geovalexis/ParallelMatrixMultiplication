@@ -8,9 +8,7 @@ git clone https://github.com/username/repository
 git add <filename>
 git add *
 git add . #Subir todos los archivos en los que haya habido cambios
-
 git commit -m "Commit message"
-
 git push origin master
 
 git fetch
@@ -19,7 +17,7 @@ git pull
 
 USO HABITUAL:
 - Al abrir el programa: git fetch -> git status (opcional) -> git pull
-- Para guardar los cambios: git add . (para añadir los ficheros con cambios)-> git commit -m "Mensaje" -> git push origin <rama> (subirlo al repositorio remoto)
-
+- Para guardar los cambios: git add . (para añadir los ficheros con cambios)-> git commit -m "Mensaje" -> git push origin <branchname> (subirlo al repositorio remoto)
+- Crear una rama, trabajar en ella y juntarlo con el master: git checkout -b branchname -> [mientras se trabaja en esta rama utilizar los comandos anteriores] -> git checkout master -> git merge origin branchname (se juntan el trabaja realizado en esa rama al master).
 
 

@@ -163,27 +163,29 @@ if __name__ == '__main__':
             - Comprobar que las matrices se puedan multipicar, es decir: m x n y n x p (n tienen que ser iguales) - done 
             - Comprobar que el nº de workers requerido no esta entre m y m*l"""
     
-    #rowsA = input("Number of rows of matrix A =")
-    #columsA = input("Number of colums of matrix A =")
-    #rowsB = input("Number of rows of matrix B =") 
+    #rowsA = int(input("Number of rows of matrix A ="))
+    #columnsA = int(input("Number of colums of matrix A ="))
+    #rowsB = int(input("Number of rows of matrix B =")) 
     #columnsB = rowsA
     
 
 
-    matrixA=random_matrix(50,50)      #matrixA=random_matrix(rowsA,columnsA)
+    #matrixA=random_matrix(rowsA,columnsA)
+    matrixA=random_matrix(500,500)
     print("Matriz A \n", matrixA)
-    matrixB=random_matrix(50,50)      #matrixB=random_matrix(rowsB,columnsB)
+    #matrixB=random_matrix(rowsB,columnsB)
+    matrixB=random_matrix(500,500)
     print("Matriz B \n", matrixB)
     #if (len(matrixA) != len(matrixB[0])):
     #    print ("Matrices cannot be multiplied: Rows(A)=", len(matrixA),"!= Columns(B)=", len(matrixB[0]))
-    result_matrix=multiply_matrix_sequencial(matrixA,matrixB)
-    print("Result \n", result_matrix)
+    #Muy importante, para matrices grandes comentar las dos lineas de abajo
+    #result_matrix=multiply_matrix_sequencial(matrixA,matrixB)
+    #print("Result \n", result_matrix)
 
-    #nworkers = input("Number of workers =")
-    nworkers=50
+    nworkers = int(input("Number of workers ="))
     #while nworkers>100 or rowsA<nworkers<rowsA*columnsB:
     #    print("Number of workers should be a number between 0 and 100")
-    #        #nworkers = input("Number of workers =")
+    #    nworkers = input("Number of workers =")
 
     
     pw = pywren.ibm_cf_executor()
@@ -194,7 +196,7 @@ if __name__ == '__main__':
     futures = pw.map_reduce(map_multiply_matrix, iterdata, reduce_matrix)
     pw.wait(futures) # wait for the completion of map_reduce() call
     elapsed_time = time.time() - start_time
-    print(pw.get_result())
+    #print(pw.get_result())
     print("Tiempo total: ",elapsed_time,"s")
 
     

@@ -19,5 +19,5 @@ USO HABITUAL:
 - Al abrir el programa: git fetch -> git status (opcional) -> git pull
 - Para guardar los cambios: git add . (para añadir los ficheros con cambios)-> git commit -m "Mensaje" -> git push origin <branchname> (subirlo al repositorio remoto)
 - Crear una rama, trabajar en ella y juntarlo con el master: git checkout -b branchname -> [mientras se trabaja en esta rama utilizar los comandos anteriores] -> git checkout master -> git merge origin branchname (se juntan el trabaja realizado en esa rama al master).
-
-
+INDICACIONES MERGE:
+- Si no se usa la utilidad gráfica de pyhton para resolver los conflictos entre ramas, borrar manualmente entre nombrerama>>>>	<<<<head

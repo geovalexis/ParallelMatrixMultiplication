@@ -169,10 +169,10 @@ if __name__ == '__main__':
     #columnsB = rowsA
     
     #matrixA=random_matrix(rowsA,columnsA)
-    matrixA=random_matrix(700,700)
+    matrixA=random_matrix(10,10)
     print("Matriz A \n", matrixA)
     #matrixB=random_matrix(rowsB,columnsB)
-    matrixB=random_matrix(700,700)
+    matrixB=random_matrix(10,10)
     print("Matriz B \n", matrixB)
     #if (len(matrixA) != len(matrixB[0])):
     #    print ("Matrices cannot be multiplied: Rows(A)=", len(matrixA),"!= Columns(B)=", len(matrixB[0]))

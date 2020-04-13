@@ -3,10 +3,15 @@ import numpy as np
 from io import StringIO
 import time
 
-
 __author__      = "Geovanny Risco y Damian Maleno"
-bucketname = 'geolacket' #nombre del bucket en el IBM cloud, 'geolacket'or 'damianmaleno'
-MAX_LINE_WIDTH=1000000  #Necesario al trabajar con matrices de un tamaño muy grande -> array2string inserta un salto de linea al llegar a este valor máximo,
+__credits__     = ["Geovanny Risco", "Damian Maleno"]
+__version__     = "1.0"
+__email__       = ["geovannyalexan.risco@estudiants.urv.cat", "franciscodamia.maleno@estudiants.urv.cat"]
+__status__      = "Finished"
+
+
+bucketname = 'damianmaleno' #nombre del bucket en el IBM cloud, 'geolacket'or 'damianmaleno'
+MAX_LINE_WIDTH=1000000  # Necesario al trabajar con matrices de un tamaño muy grande -> array2string inserta un salto de linea al llegar a este valor máximo,
 MAX_ARRAY_ITEMS=1000000 #                                                                que por defecto es 75 (numpy.get_printoptions()['linewidth'])
                         #                                                                El nº máximo de elementos es de 1000 (numpy.get_printoptions()['threshold']),
                         #                                                                por tanto es también necesario cambiarlo.
@@ -29,6 +34,21 @@ def multiply_matrix_sequencial(matrixA,matrixB):
 """
 Divides matrix A into submatrices of a x n (row-wise) and matrix B into submatrices of n x a (column-wise) 
 and uploads each submatrix to COS.
+Divides matrices in function of the number of workers given by parameter (nworkers):
+-In case the number of workers is equal to the number of rows of matrix A, each worker will be asigned with the multiplication of
+one row of matrixA times matrixB.
+-In case the number of workers is lower than the number of rows of matrix A, matrix A will be divided into equal sized chunks,
+in a worst case scenario the last chunk will hold the biggest number of rows due to the remainder of the division.
+-In case the number of workers is equal to rows of matrixA times colums of matrixB, each worker will get: one row of matrixA 
+(divided row-wise) times one column of matrixB (divided column-wise), representing the case where workers get the lightest
+work load.
+
+:param bucketname: nombre del bucket de ibmcloud
+:param matrixA: matriz A generada con valores aleatorios
+:param matrixB: matriz B generada con valores aleatorios
+:param ibm_cos: instancia de ibm_boto3.CLient(), necesaria para subir y descargar archivos del ibm cloud
+:returns iterdata: diccionario contenedor del nombre de las submatrices generadas por el método
+
 """
 def inicializacion(bucketname, matrixA, matrixB, nworkers, ibm_cos):
     

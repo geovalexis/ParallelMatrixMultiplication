@@ -168,13 +168,11 @@ if __name__ == '__main__':
     #rowsB = int(input("Number of rows of matrix B =")) 
     #columnsB = rowsA
     
-
-
     #matrixA=random_matrix(rowsA,columnsA)
-    matrixA=random_matrix(500,500)
+    matrixA=random_matrix(700,700)
     print("Matriz A \n", matrixA)
     #matrixB=random_matrix(rowsB,columnsB)
-    matrixB=random_matrix(500,500)
+    matrixB=random_matrix(700,700)
     print("Matriz B \n", matrixB)
     #if (len(matrixA) != len(matrixB[0])):
     #    print ("Matrices cannot be multiplied: Rows(A)=", len(matrixA),"!= Columns(B)=", len(matrixB[0]))
@@ -186,8 +184,7 @@ if __name__ == '__main__':
     #while nworkers>100 or rowsA<nworkers<rowsA*columnsB:
     #    print("Number of workers should be a number between 0 and 100")
     #    nworkers = input("Number of workers =")
-
-    
+  
     pw = pywren.ibm_cf_executor()
     pw.call_async(inicializacion, [bucketname, matrixA, matrixB, nworkers])
     iterdata= pw.get_result()

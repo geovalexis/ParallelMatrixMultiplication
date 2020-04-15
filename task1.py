@@ -10,47 +10,37 @@ __email__       = ["geovannyalexan.risco@estudiants.urv.cat", "franciscodamia.ma
 __status__      = "Finished"
 
 
-bucketname = 'damianmaleno' #nombre del bucket en el IBM cloud, 'geolacket'or 'damianmaleno'
+bucketname = 'geolacket' #nombre del bucket en el IBM cloud, 'geolacket'or 'damianmaleno'
+MAX_NUMBER=100          # Valor máximo para las matrices aleatorias
 MAX_LINE_WIDTH=1000000  # Necesario al trabajar con matrices de un tamaño muy grande -> array2string inserta un salto de linea al llegar a este valor máximo,
 MAX_ARRAY_ITEMS=1000000 #                                                                que por defecto es 75 (numpy.get_printoptions()['linewidth'])
                         #                                                                El nº máximo de elementos es de 1000 (numpy.get_printoptions()['threshold']),
                         #                                                                por tanto es también necesario cambiarlo.
 
 def random_matrix(m,n):
-    return np.random.randint(100, size=(m,n))
-
-def multiply_matrix_sequencial(matrixA,matrixB):
-    result = [[0 for col in range(len(matrixA))] for row in range(len(matrixB[0]))]
-    # iterate through rows of X
-    for i in range(len(matrixA)):
-    # iterate through columns of Y
-        for j in range(len(matrixB[0])):
-            # iterate through rows of Y
-            for k in range(len(matrixB)):
-                result[i][j] += matrixA[i][k] * matrixB[k][j]
-    return result
+    return np.random.randint(MAX_NUMBER, size=(m,n))
 
 
-"""
-Divides matrix A into submatrices of a x n (row-wise) and matrix B into submatrices of n x a (column-wise) 
-and uploads each submatrix to COS.
-Divides matrices in function of the number of workers given by parameter (nworkers):
--In case the number of workers is equal to the number of rows of matrix A, each worker will be asigned with the multiplication of
-one row of matrixA times matrixB.
--In case the number of workers is lower than the number of rows of matrix A, matrix A will be divided into equal sized chunks,
-in a worst case scenario the last chunk will hold the biggest number of rows due to the remainder of the division.
--In case the number of workers is equal to rows of matrixA times colums of matrixB, each worker will get: one row of matrixA 
-(divided row-wise) times one column of matrixB (divided column-wise), representing the case where workers get the lightest
-work load.
-
-:param bucketname: nombre del bucket de ibmcloud
-:param matrixA: matriz A generada con valores aleatorios
-:param matrixB: matriz B generada con valores aleatorios
-:param ibm_cos: instancia de ibm_boto3.CLient(), necesaria para subir y descargar archivos del ibm cloud
-:returns iterdata: diccionario contenedor del nombre de las submatrices generadas por el método
-
-"""
 def inicializacion(bucketname, matrixA, matrixB, nworkers, ibm_cos):
+    """
+    Divides matrix A into submatrices of a x n (row-wise) and matrix B into submatrices of n x a (column-wise) 
+    and uploads each submatrix to COS.
+    Divides matrices in function of the number of workers given by parameter (nworkers):
+    -In case the number of workers is equal to the number of rows of matrix A, each worker will be asigned with the multiplication of
+    one row of matrixA times matrixB.
+    -In case the number of workers is lower than the number of rows of matrix A, matrix A will be divided into equal sized chunks,
+    in a worst case scenario the last chunk will hold the biggest number of rows due to the remainder of the division.
+    -In case the number of workers is equal to rows of matrixA times colums of matrixB, each worker will get: one row of matrixA 
+    (divided row-wise) times one column of matrixB (divided column-wise), representing the case where workers get the lightest
+    work load.
+
+    :param bucketname: nombre del bucket de ibmcloud
+    :param matrixA: matriz A generada con valores aleatorios
+    :param matrixB: matriz B generada con valores aleatorios
+    :param ibm_cos: instancia de ibm_boto3.CLient(), necesaria para subir y descargar archivos del ibm cloud
+    :returns iterdata: diccionario contenedor del nombre de las submatrices generadas por el método
+
+    """
     
     iterdata=[]
     if nworkers <= len(matrixA):
@@ -113,21 +103,16 @@ def map_multiply_matrix(A, B, C, ibm_cos):
     :param ibm_cos: instancia de ibm_boto3.CLient(), necesaria para subir y descargar archivos del ibm cloud
     :returns: diccionario con el parámetro C sin modificar y el resultado de multiplicar la submatriz A y B
     """
-    
-    #submatrixA=[]
-    #for nom_fitxer in A:
+    #Obtener submatriz A
     submatrixA=ibm_cos.get_object(Bucket=bucketname, Key=A)['Body'].read().decode('utf-8') #junta toda las submatrices A que a este worker le toque multiplicar
-    #submatrixA = "\n".join(submatrixA) #Para juntar cada submatriz en una linea diferente
     submatrixA = np.genfromtxt(StringIO(submatrixA),dtype=int) #convierte la submatriz total en una matriz del tipo numpy (array) -> necesario para hacer la multiplicacion con numpy.dot
 
-    #submatrixB=[]
-    #for nom_fitxer in B:
+    #Obtener submatriz B
     submatrixB=ibm_cos.get_object(Bucket=bucketname, Key=B)['Body'].read().decode('utf-8')
-    #submatrixB = "\n".join(submatrixB)
     submatrixB = np.genfromtxt(StringIO(submatrixB),dtype=int)
-    submatrixB = np.transpose(submatrixB)
+    submatrixB = np.transpose(submatrixB) #Es necesario transponerla para que vuelva al estado original
 
-    return {'C': C, 'res': submatrixA.dot(submatrixB)}
+    return {'C': C, 'res': submatrixA.dot(submatrixB)} 
 
 
 def reduce_matrix(results,ibm_cos):
@@ -139,61 +124,50 @@ def reduce_matrix(results,ibm_cos):
     """
     matrixC=[]
     for subresult in results:
-        (fila,col)=subresult['C'].strip('C()').split(',') #Teniendo en cuenta el formato C(fila,columna)
+        (fila,col)=subresult['C'].strip('C()').split(',') #Teniendo en cuenta el formato: C(fila,columna)
         fila=int(fila)
         if (col==':'):
-            matrixC.insert(fila,np.array2string(subresult['res'],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]"))) #CORREGIR PORQUE HAY SALTOS DE LINEA AL TENER UNA HACERLO CON FILAS SUPERIORES DE 12
+            matrixC.insert(fila,np.array2string(subresult['res'],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]")))
         else:
             if fila-1 >= len(matrixC): #La primera vez que llega el valor de una fila hay que crear una lista, que correspondrá a una de las filas de la matriz C
                 matrixC.append("")
-            matrixC[fila-1]=matrixC[fila-1]+" "+np.array2string(subresult['res'],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]")) #ESTO SOLO FUNCIONA BIEN SI CONSIDERAMOS QUE LOS RESULTADOS VAN LLEGANDO EN ORDEN
-
+            matrixC[fila-1]=matrixC[fila-1]+" "+np.array2string(subresult['res'],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]")) 
+            #Podemos hacer esto porque los resultados van llegando en orden
     ibm_cos.put_object(Bucket=bucketname, Key="C.txt", Body='\n'.join(matrixC))
-    #data.append(ibm_cos.get_object(Bucket=bucketname, Key="C({}).txt".format(i))['Body'].read().decode('utf-8'))
     
     return matrixC
 
 
-
 if __name__ == '__main__':
 
-    """TODO: Hacer comprobaciones:
-            - Pedir tamaño de matrices - done
-            - El numero de workers no puede ser superior a 100 - done
-            - Comprobar que las matrices se puedan multipicar, es decir: m x n y n x p (n tienen que ser iguales) - done 
-            - Comprobar que el nº de workers requerido no esta entre m y m*l"""
+    #PETICIONES Y COMPROBACION DE DATOS:
+    rowsA = int(input("Number of rows of matrix A: "))
+    columnsA = int(input("Number of colums of matrix A: "))
+    print("There will be",columnsA,"columns in matrix B so that they can be multiplied")
+    columnsB = int(input("Number of columns of matrix B: ")) 
+    rowsB = columnsA
     
-    #rowsA = int(input("Number of rows of matrix A ="))
-    #columnsA = int(input("Number of colums of matrix A ="))
-    #rowsB = int(input("Number of rows of matrix B =")) 
-    #columnsB = rowsA
-    
-    #matrixA=random_matrix(rowsA,columnsA)
-    matrixA=random_matrix(10,10)
+    print("\nGenerating matrices randomdly...")
+    matrixA=random_matrix(rowsA,columnsA)
     print("Matriz A \n", matrixA)
-    #matrixB=random_matrix(rowsB,columnsB)
-    matrixB=random_matrix(10,10)
+    matrixB=random_matrix(rowsB,columnsB)
     print("Matriz B \n", matrixB)
-    #if (len(matrixA) != len(matrixB[0])):
-    #    print ("Matrices cannot be multiplied: Rows(A)=", len(matrixA),"!= Columns(B)=", len(matrixB[0]))
-    #Muy importante, para matrices grandes comentar las dos lineas de abajo
-    #result_matrix=multiply_matrix_sequencial(matrixA,matrixB)
-    #print("Result \n", result_matrix)
 
-    nworkers = int(input("Number of workers ="))
-    #while nworkers>100 or rowsA<nworkers<rowsA*columnsB:
-    #    print("Number of workers should be a number between 0 and 100")
-    #    nworkers = input("Number of workers =")
+    nworkers = int(input("Number of workers: "))
+    while 1<=nworkers>100 or rowsA<nworkers<rowsA*columnsB:
+        print("\nNumber of workers should be a number between 1 and 100")
+        nworkers = input("Number of workers: ")
   
+    #OPERACIONES EN IBM CLOUD:
     pw = pywren.ibm_cf_executor()
     pw.call_async(inicializacion, [bucketname, matrixA, matrixB, nworkers])
     iterdata= pw.get_result()
-    print(iterdata)
-    start_time= time.time()
+    #print(iterdata)
+    start_time= time.time() #Para calcular el tiempo de calculo de pywren
     futures = pw.map_reduce(map_multiply_matrix, iterdata, reduce_matrix)
     pw.wait(futures) # wait for the completion of map_reduce() call
     elapsed_time = time.time() - start_time
-    #print(pw.get_result())
+    print(pw.get_result())
     print("Tiempo total: ",elapsed_time,"s")
 
     

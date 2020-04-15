@@ -117,7 +117,7 @@ def map_multiply_matrix(A, B, C, ibm_cos):
 
 def reduce_matrix(results,ibm_cos):
     """
-    Recibe los resultados de los workers y los junta en una matriz C.
+    Recibe los resultados de los workers y los junta en una matriz C. El resultado de cada worker va llegando en el mismo orden que el iterdata.
     :param results: diccionario con el parámetro C, el cual contiene la posición que ocupará el resultado en la matriz C, y el resultado de multiplicar la submatriz A y B
     :param ibm_cos: instancia de ibm_boto3.CLient(), necesaria para subir y descargar archivos del ibm cloud
     :returns: matriz C
@@ -132,7 +132,7 @@ def reduce_matrix(results,ibm_cos):
             if fila-1 >= len(matrixC): #La primera vez que llega el valor de una fila hay que crear una lista, que correspondrá a una de las filas de la matriz C
                 matrixC.append("")
             matrixC[fila-1]=matrixC[fila-1]+" "+np.array2string(subresult['res'],max_line_width=MAX_LINE_WIDTH,threshold=MAX_ARRAY_ITEMS).translate(str.maketrans("", "", "[]")) 
-            #Podemos hacer esto porque los resultados van llegando en orden
+            #Podemos hacer esto porque los resultados van llegando en orden (El iterdata esta ordenado)
     ibm_cos.put_object(Bucket=bucketname, Key="C.txt", Body='\n'.join(matrixC))
     
     return matrixC
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     while 1<=nworkers>100 or rowsA<nworkers<rowsA*columnsB:
         print("\nNumber of workers should be a number between 1 and 100")
         nworkers = input("Number of workers: ")
-  
+    
     #OPERACIONES EN IBM CLOUD:
     pw = pywren.ibm_cf_executor()
     pw.call_async(inicializacion, [bucketname, matrixA, matrixB, nworkers])

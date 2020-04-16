@@ -15,6 +15,8 @@ git fetch
 git status
 git pull
 
+git stash clear #limpiar cambios recientes
+
 USO HABITUAL:
 - Al abrir el programa: git fetch -> git status (opcional) -> git pull
 - Para guardar los cambios: git add . (para añadir los ficheros con cambios)-> git commit -m "Mensaje" -> git push origin <branchname> (subirlo al repositorio remoto)
